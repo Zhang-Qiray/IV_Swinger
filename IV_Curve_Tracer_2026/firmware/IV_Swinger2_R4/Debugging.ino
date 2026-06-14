@@ -293,13 +293,13 @@ void printSweepPassSummary(Stream &out, const char *prefix) {
   out.print(F("complete="));
   out.print(sweepReachedEnd ? 1 : 0);
   out.print(F(" current_tail="));
-  out.print(sweepCurrentReachedTail ? 1 : 0);
+  out.print(reachedTail ? 1 : 0);
   out.print(F(" isc_stable="));
   out.println(sweepIscReady ? 1 : 0);
 
   out.print(prefix);
   out.print(F("measured="));
-  out.print(sweepRawPointCount);
+  out.print(rawPointsRead);
   out.print(F(" elapsed_us="));
   out.print(sweepElapsedMicros);
   out.print(F(" us_per_raw="));
@@ -311,7 +311,7 @@ void printSweepPassSummary(Stream &out, const char *prefix) {
   out.print(F(" isc_adc="));
   out.print(sweepIscAdcCount);
   out.print(F(" done_i_adc="));
-  out.print(sweepEndCurrentAdcThreshold);
+  out.print(tailCurrentAdc);
   out.print(F(" done_delta_adc="));
   out.println(SWEEP_DONE_CURRENT_DELTA_ADC);
 }
@@ -321,13 +321,13 @@ void printSweepResultSummary(Stream &out, const char *prefix) {
   out.print(F("complete="));
   out.print(sweepReachedEnd ? 1 : 0);
   out.print(F(" current_tail="));
-  out.print(sweepCurrentReachedTail ? 1 : 0);
+  out.print(reachedTail ? 1 : 0);
   out.print(F(" saved="));
-  out.print(sweepOutputPointCount);
+  out.print(pointsSaved);
   out.print(F(" target="));
-  out.print(sweepOutputPointLimit);
+  out.print(saveLimit);
   out.print(F(" measured="));
-  out.println(sweepRawPointCount);
+  out.println(rawPointsRead);
 
   out.print(prefix);
   out.print(F("save_all_raw="));
@@ -349,27 +349,27 @@ void printSweepResultSummary(Stream &out, const char *prefix) {
 }
 
 float rawUsecsPerPoint() {
-  if (sweepRawPointCount <= 0) {
+  if (rawPointsRead <= 0) {
     return 0.0f;
   }
-  return (float)sweepElapsedMicros / sweepRawPointCount;
+  return (float)sweepElapsedMicros / rawPointsRead;
 }
 
 float rawPointsPerSecond() {
   if (sweepElapsedMicros <= 0) {
     return 0.0f;
   }
-  return (1000000.0f * sweepRawPointCount) / sweepElapsedMicros;
+  return (1000000.0f * rawPointsRead) / sweepElapsedMicros;
 }
 
 void printDetailedSweepData(Stream &out) {
-  if (sweepOutputPointCount <= 0) {
+  if (pointsSaved <= 0) {
     out.println(F("ERR SWEEP_POINTS no_sweep_data"));
     return;
   }
 
   out.println(F("BEGIN_SWEEP_POINTS format=\"index,volts,amps,adc_v,adc_i_raw,adc_i_corr\""));
-  for (int index = 0; index < sweepOutputPointCount; ++index) {
+  for (int index = 0; index < pointsSaved; ++index) {
     printDetailedSweepPoint(out, index);
   }
   out.println(F("END_SWEEP_POINTS"));

@@ -9,9 +9,9 @@ void runTeachingSweep(Stream &out, int requestedPoints, int sampleDelayMicros) {
   const int targetPoints = constrain(requestedPoints, 1, MAX_RAW_POINTS);
   const int delayMicros = constrain(sampleDelayMicros, 0, 1000);
 
-  sweepOutputPointLimit = targetPoints;
-  sweepRawPointCount = 0;
-  sweepOutputPointCount = 0;
+  saveLimit = targetPoints;
+  rawPointsRead = 0;
+  pointsSaved = 0;
   sweepElapsedMicros = 0;
   sweepManualDelayMicros = delayMicros;
   sweepSaveAllRawPoints = true;
@@ -45,7 +45,7 @@ void runTeachingSweep(Stream &out, int requestedPoints, int sampleDelayMicros) {
   sweepElapsedMicros = micros() - startMicros;
   endSweepPath();
 
-  sweepRawPointCount = targetPoints;
-  sweepOutputPointCount = targetPoints;
+  rawPointsRead = targetPoints;
+  pointsSaved = targetPoints;
   printCleanSweepData(out);
 }

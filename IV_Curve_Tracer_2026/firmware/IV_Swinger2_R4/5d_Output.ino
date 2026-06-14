@@ -23,7 +23,7 @@ float smartAdcToVolts(int voltageAdc) {
 int correctedSweepCurrentAdc(int index) {
   const int currentAdc = scratch.rawPoints[index].i;
 
-  if (!sweepSaveAllRawPoints || index >= sweepOutputPointCount - 1) {
+  if (!sweepSaveAllRawPoints || index >= pointsSaved - 1) {
     return currentAdc;
   }
 
@@ -32,11 +32,11 @@ int correctedSweepCurrentAdc(int index) {
 }
 
 float averageMicrosPerOutputPoint() {
-  if (sweepOutputPointCount <= 0) {
+  if (pointsSaved <= 0) {
     return 0.0;
   }
 
-  return (float)sweepElapsedMicros / sweepOutputPointCount;
+  return (float)sweepElapsedMicros / pointsSaved;
 }
 
 void printMicrosPerPoint(Stream &out) {
@@ -59,7 +59,7 @@ void printMicrosPerPoint(Stream &out) {
 }
 
 void printMaxPowerPoint(Stream &out) {
-  if (sweepOutputPointCount <= 0) {
+  if (pointsSaved <= 0) {
     out.println(F("MPP P = 0.0000 I = 0.0000 V = 0.0000"));
     return;
   }
@@ -68,7 +68,7 @@ void printMaxPowerPoint(Stream &out) {
   float maxPowerAmps = 0.0f;
   float maxPowerVolts = 0.0f;
 
-  for (int index = 0; index < sweepOutputPointCount; ++index) {
+  for (int index = 0; index < pointsSaved; ++index) {
     const RawPoint point = scratch.rawPoints[index];
     const float amps = smartAdcToAmps(correctedSweepCurrentAdc(index));
     const float volts = smartAdcToVolts(point.v);
@@ -98,11 +98,11 @@ void printCleanSweepData(Stream &out) {
   out.print(F(" Isc = "));
   out.print(iscAmps, 4);
   out.print(F(" Points = "));
-  out.print(sweepOutputPointCount);
+  out.print(pointsSaved);
   printMicrosPerPoint(out);
   printMaxPowerPoint(out);
 
-  for (int index = 0; index < sweepOutputPointCount; ++index) {
+  for (int index = 0; index < pointsSaved; ++index) {
     printCleanSweepPoint(out, index);
   }
 }

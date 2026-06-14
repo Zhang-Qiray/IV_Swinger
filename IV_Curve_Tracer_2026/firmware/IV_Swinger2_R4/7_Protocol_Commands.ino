@@ -8,8 +8,8 @@
  *   WORD number
  *   WORD number number
  *
- * The command list is intentionally plain if/else code because these commands
- * are stable and are not expected to grow.
+ * The command table below keeps the serial protocol easy to scan. Adding a
+ * command should usually mean adding one row and one handler.
  */
 
 String commandName = "";
@@ -18,6 +18,36 @@ const int MAX_COMMAND_ARGS_CHARS = 120;
 char commandArgsBuffer[MAX_COMMAND_ARGS_CHARS];
 char *nextArgContext = nullptr;
 bool nextArgStarted = false;
+
+typedef void (*CommandHandler)();
+
+struct SerialCommand {
+  const char *name;
+  CommandHandler handler;
+};
+
+const SerialCommand COMMANDS[] = {
+    {"HELP", handleHelp},
+    {"PING", handlePing},
+    {"STATE", handleState},
+    {"IDLE", handleIdle},
+    {"RELAY", handleRelay},
+    {"ADC", handleAdc},
+    {"ADC_BOTH", handleAdcBoth},
+    {"ADC_SPEED", handleAdcSpeed},
+    {"SPI_HZ", handleSpiHz},
+    {"CAL", handleCal},
+    {"SET_CAL", handleSetCal},
+    {"VOC", handleVoc},
+    {"ISC", handleIsc},
+    {"VOC_TEST", handleVocTest},
+    {"ISC_TEST", handleIscTest},
+    {"SWEEP", handleSweep},
+    {"SWEEP_T", handleSweepT},
+    {"SWEEP_ALL", handleSweepAll},
+    {"SWEEP_POINTS", handleSweepPoints},
+    {"STOP", handleStop},
+};
 
 void handleSerialCommand(String commandLine) {
   commandLine.trim();
@@ -28,52 +58,23 @@ void handleSerialCommand(String commandLine) {
 
   splitCommandLine(commandLine);
 
-  if (commandName == "HELP") {
-    handleHelp();
-  } else if (commandName == "PING") {
-    handlePing();
-  } else if (commandName == "STATE") {
-    handleState();
-  } else if (commandName == "IDLE") {
-    handleIdle();
-  } else if (commandName == "RELAY") {
-    handleRelay();
-  } else if (commandName == "ADC") {
-    handleAdc();
-  } else if (commandName == "ADC_BOTH") {
-    handleAdcBoth();
-  } else if (commandName == "ADC_SPEED") {
-    handleAdcSpeed();
-  } else if (commandName == "SPI_HZ") {
-    handleSpiHz();
-  } else if (commandName == "CAL") {
-    handleCal();
-  } else if (commandName == "SET_CAL") {
-    handleSetCal();
-  } else if (commandName == "VOC") {
-    handleVoc();
-  } else if (commandName == "ISC") {
-    handleIsc();
-  } else if (commandName == "VOC_TEST") {
-    handleVocTest();
-  } else if (commandName == "ISC_TEST") {
-    handleIscTest();
-  } else if (commandName == "SWEEP") {
-    handleSweep();
-  } else if (commandName == "SWEEP_T") {
-    handleSweepT();
-  } else if (commandName == "SWEEP_ALL") {
-    handleSweepAll();
-  } else if (commandName == "SWEEP_POINTS") {
-    handleSweepPoints();
-  } else if (commandName == "STOP") {
-    handleStop();
-  } else {
+  if (!dispatchCommand()) {
     Serial.print(F("ERR UNKNOWN_COMMAND cmd="));
     Serial.println(commandName);
   }
 
   clearCommandArgs();
+}
+
+bool dispatchCommand() {
+  for (const SerialCommand &cmd : COMMANDS) {
+    if (commandName == cmd.name) {
+      cmd.handler();
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void splitCommandLine(String commandLine) {

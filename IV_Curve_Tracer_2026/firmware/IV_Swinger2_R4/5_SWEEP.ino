@@ -28,19 +28,19 @@ const int SWEEP_TIMEOUT_CHECK_EVERY_POINTS = 16;
 
 // Counts that describe the latest sweep. Raw points are every ADC pair read
 // from the MCP3202; output points are the subset saved for printing/plotting.
-int sweepOutputPointLimit = MAX_SWEEP_OUTPUT_POINTS;
-int sweepRawPointCount = 0;
-int sweepOutputPointCount = 0;
+int saveLimit = MAX_SWEEP_OUTPUT_POINTS;
+int rawPointsRead = 0;
+int pointsSaved = 0;
 
 // Endpoint measurements in raw ADC counts.
 int sweepVocAdcCount = 0;
 int sweepIscAdcCount = 0;
 
-int sweepEndCurrentAdcThreshold = 0;
-int sweepPreviousCurrentAdc = 0;
+int tailCurrentAdc = 0;
+int prevCurrentAdc = 0;
 
 bool sweepReachedEnd = false;
-bool sweepCurrentReachedTail = false;
+bool reachedTail = false;
 bool sweepIscReady = false;
 bool sweepSaveAllRawPoints = false;
 
@@ -49,7 +49,7 @@ uint32_t sweepElapsedMicros = 0;
 uint32_t sweepSaveIntervalMicros = 1;
 int sweepManualDelayMicros = -1;  // -1 means normal SWEEP, 0..1000 means SWEEP_T.
 
-RawPoint latestSweepPoint;
+RawPoint latestPoint;
 
 void handleVoc() {
   measureVocForSweep();

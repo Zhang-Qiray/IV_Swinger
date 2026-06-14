@@ -8,7 +8,7 @@
  */
 
 void runAutomaticSweep(Stream &out, int requestedOutputPoints, bool verboseOutput) {
-  sweepOutputPointLimit =
+  saveLimit =
       min(requestedOutputPoints + SWEEP_OUTPUT_POINT_RESERVE, MAX_RAW_POINTS);
   sweepSaveIntervalMicros = 0;
   sweepSaveAllRawPoints = false;
@@ -64,7 +64,7 @@ bool automaticPrescanSucceeded(Stream &out, bool verboseOutput) {
 void chooseOutputSaveStrategy(int requestedOutputPoints) {
   sweepSaveIntervalMicros =
       max(1UL, sweepElapsedMicros / max(1, requestedOutputPoints - 1));
-  sweepSaveAllRawPoints = sweepRawPointCount <= requestedOutputPoints;
+  sweepSaveAllRawPoints = rawPointsRead <= requestedOutputPoints;
 }
 
 // A formal sweep with a valid Isc is useful even if it times out before the
@@ -101,12 +101,12 @@ void runPrescanSweep() {
   const uint32_t startMicros = micros();
   beginAdcBurst();
 
-  while (sweepRawPointCount < MAX_RAW_SWEEP_POINTS_TO_READ) {
+  while (rawPointsRead < MAX_RAW_SWEEP_POINTS_TO_READ) {
     readLatestSweepPoint();
-    sweepRawPointCount++;
+    rawPointsRead++;
 
     if (sweepOutputCurrentReachedTail()) {
-      sweepCurrentReachedTail = true;
+      reachedTail = true;
       sweepReachedEnd = true;
       break;
     }
@@ -142,9 +142,9 @@ void runFormalSweep() {
 void captureFormalSweepPoints(uint32_t startMicros) {
   uint32_t nextSaveMicros = 0;
 
-  while (sweepRawPointCount < MAX_RAW_SWEEP_POINTS_TO_READ) {
+  while (rawPointsRead < MAX_RAW_SWEEP_POINTS_TO_READ) {
     readLatestSweepPoint();
-    sweepRawPointCount++;
+    rawPointsRead++;
 
     const uint32_t elapsedMicros =
         sweepSaveAllRawPoints ? 0 : micros() - startMicros;
@@ -153,7 +153,7 @@ void captureFormalSweepPoints(uint32_t startMicros) {
     }
 
     if (sweepOutputCurrentReachedTail()) {
-      sweepCurrentReachedTail = true;
+      reachedTail = true;
       sweepReachedEnd = true;
       break;
     }
@@ -166,7 +166,7 @@ void captureFormalSweepPoints(uint32_t startMicros) {
 
 bool shouldSaveFormalSweepPoint(uint32_t elapsedMicros,
                                 uint32_t *nextSaveMicros) {
-  if (sweepOutputPointCount >= sweepOutputPointLimit) {
+  if (pointsSaved >= saveLimit) {
     return false;
   }
 
@@ -186,31 +186,31 @@ bool shouldSaveFormalSweepPoint(uint32_t elapsedMicros,
 //   Voc is measured for reporting and current-channel noise tracking.
 //   Isc confirms the short-circuit path is working.
 void preparePanelForSweep() {
-  sweepRawPointCount = 0;
-  sweepOutputPointCount = 0;
-  sweepEndCurrentAdcThreshold = MIN_SWEEP_DONE_CURRENT_ADC;
-  sweepPreviousCurrentAdc = 0;
+  rawPointsRead = 0;
+  pointsSaved = 0;
+  tailCurrentAdc = MIN_SWEEP_DONE_CURRENT_ADC;
+  prevCurrentAdc = 0;
   sweepReachedEnd = false;
-  sweepCurrentReachedTail = false;
+  reachedTail = false;
   sweepIscReady = false;
   sweepElapsedMicros = 0;
 
   measureVocForSweep();
   sweepVocAdcCount = lastVocAdc;
-  sweepEndCurrentAdcThreshold = max(lastNoiseMin << 1, MIN_SWEEP_DONE_CURRENT_ADC);
+  tailCurrentAdc = max(lastNoiseMin << 1, MIN_SWEEP_DONE_CURRENT_ADC);
 
   sweepIscReady = measureStableIscForSweep();
   sweepIscAdcCount = lastIscAdc;
-  sweepPreviousCurrentAdc = sweepIscAdcCount;
+  prevCurrentAdc = sweepIscAdcCount;
 }
 
 void readLatestSweepPoint() {
-  latestSweepPoint.i = readAdcInTransaction(ADC_CURRENT_CH);
-  latestSweepPoint.v = readAdcInTransaction(ADC_VOLTAGE_CH);
+  latestPoint.i = readAdcInTransaction(ADC_CURRENT_CH);
+  latestPoint.v = readAdcInTransaction(ADC_VOLTAGE_CH);
 }
 
 bool sweepTimedOut(uint32_t startMicros) {
-  if (sweepRawPointCount % SWEEP_TIMEOUT_CHECK_EVERY_POINTS != 0) {
+  if (rawPointsRead % SWEEP_TIMEOUT_CHECK_EVERY_POINTS != 0) {
     return false;
   }
 
@@ -223,30 +223,30 @@ bool sweepTimedOut(uint32_t startMicros) {
 
 // Stop when the current is near the noise floor and is no longer falling fast.
 bool sweepOutputCurrentReachedTail() {
-  const int currentDelta = sweepPreviousCurrentAdc - latestSweepPoint.i;
-  sweepPreviousCurrentAdc = latestSweepPoint.i;
+  const int currentDelta = prevCurrentAdc - latestPoint.i;
+  prevCurrentAdc = latestPoint.i;
 
-  return (latestSweepPoint.i < sweepEndCurrentAdcThreshold) &&
+  return (latestPoint.i < tailCurrentAdc) &&
          (currentDelta < SWEEP_DONE_CURRENT_DELTA_ADC);
 }
 
 void saveLatestSweepPoint() {
-  if (sweepOutputPointCount == 0) {
-    scratch.rawPoints[sweepOutputPointCount] = latestSweepPoint;
-    sweepOutputPointCount++;
+  if (pointsSaved == 0) {
+    scratch.rawPoints[pointsSaved] = latestPoint;
+    pointsSaved++;
     return;
   }
 
-  if (latestSweepPoint.v < scratch.rawPoints[sweepOutputPointCount - 1].v) {
-    while ((sweepOutputPointCount > 1) &&
-           (latestSweepPoint.v < scratch.rawPoints[sweepOutputPointCount - 2].v)) {
-      sweepOutputPointCount--;
+  if (latestPoint.v < scratch.rawPoints[pointsSaved - 1].v) {
+    while ((pointsSaved > 1) &&
+           (latestPoint.v < scratch.rawPoints[pointsSaved - 2].v)) {
+      pointsSaved--;
     }
 
-    scratch.rawPoints[sweepOutputPointCount - 1] = latestSweepPoint;
+    scratch.rawPoints[pointsSaved - 1] = latestPoint;
     return;
   }
 
-  scratch.rawPoints[sweepOutputPointCount] = latestSweepPoint;
-  sweepOutputPointCount++;
+  scratch.rawPoints[pointsSaved] = latestPoint;
+  pointsSaved++;
 }

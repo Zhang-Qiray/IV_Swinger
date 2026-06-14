@@ -33,6 +33,65 @@ def assert_in_order(test_case: unittest.TestCase, text: str, snippets: list[str]
 
 
 class R4SweepReadabilityTests(unittest.TestCase):
+    def test_serial_commands_are_declared_as_a_readable_command_table(self):
+        source = read_firmware_file("7_Protocol_Commands.ino")
+
+        self.assertIn("struct SerialCommand", source)
+        self.assertIn("const SerialCommand COMMANDS[]", source)
+        self.assertIn("for (const SerialCommand &cmd : COMMANDS)", source)
+        self.assertNotIn("else if (commandName ==", source)
+
+        for command in [
+            "HELP",
+            "PING",
+            "STATE",
+            "IDLE",
+            "RELAY",
+            "ADC",
+            "ADC_BOTH",
+            "ADC_SPEED",
+            "SPI_HZ",
+            "CAL",
+            "SET_CAL",
+            "VOC",
+            "ISC",
+            "VOC_TEST",
+            "ISC_TEST",
+            "SWEEP",
+            "SWEEP_T",
+            "SWEEP_ALL",
+            "SWEEP_POINTS",
+            "STOP",
+        ]:
+            self.assertIn(f'{{"{command}",', source)
+
+    def test_sweep_state_uses_short_domain_names_for_common_state(self):
+        firmware_text = "\n".join(
+            path.read_text(encoding="utf-8") for path in FIRMWARE_DIR.glob("*.ino")
+        )
+
+        for new_name in [
+            "saveLimit",
+            "rawPointsRead",
+            "pointsSaved",
+            "tailCurrentAdc",
+            "prevCurrentAdc",
+            "reachedTail",
+            "latestPoint",
+        ]:
+            self.assertIn(new_name, firmware_text)
+
+        for old_name in [
+            "sweepOutputPointLimit",
+            "sweepRawPointCount",
+            "sweepOutputPointCount",
+            "sweepEndCurrentAdcThreshold",
+            "sweepPreviousCurrentAdc",
+            "sweepCurrentReachedTail",
+            "latestSweepPoint",
+        ]:
+            self.assertNotIn(old_name, firmware_text)
+
     def test_teaching_sweep_reads_as_one_straight_line_flow(self):
         source = read_firmware_file("5c_Sweep_manually.ino")
 
@@ -70,15 +129,15 @@ class R4SweepReadabilityTests(unittest.TestCase):
 
         self.assertIn("const int MIN_SWEEP_DONE_CURRENT_ADC = 20;", sweep_config)
         self.assertIn("const int SWEEP_DONE_CURRENT_DELTA_ADC = 3;", sweep_config)
-        self.assertIn("int sweepEndCurrentAdcThreshold = 0;", sweep_config)
+        self.assertIn("int tailCurrentAdc = 0;", sweep_config)
         self.assertNotIn("SWEEP_END_VOC_PERCENT", firmware_text)
         self.assertNotIn("sweepVoltageReachedVocPercent", firmware_text)
         self.assertNotIn("ZERO_CURRENT_CONFIRM_POINTS", firmware_text)
 
         body = function_body(auto_sweep, "bool sweepOutputCurrentReachedTail(")
-        self.assertIn("latestSweepPoint.i < sweepEndCurrentAdcThreshold", body)
+        self.assertIn("latestPoint.i < tailCurrentAdc", body)
         self.assertIn("currentDelta < SWEEP_DONE_CURRENT_DELTA_ADC", body)
-        self.assertNotIn("latestSweepPoint.i != 0", body)
+        self.assertNotIn("latestPoint.i != 0", body)
 
     def test_isc_stability_uses_original_ssr_three_equal_samples(self):
         source = read_firmware_file("5a_Measure.ino")
@@ -95,12 +154,12 @@ class R4SweepReadabilityTests(unittest.TestCase):
         source = read_firmware_file("5b_AutoSweep.ino")
 
         self.assertIn(
-            "latestSweepPoint.v < scratch.rawPoints[sweepOutputPointCount - 1].v",
+            "latestPoint.v < scratch.rawPoints[pointsSaved - 1].v",
             source,
         )
-        self.assertIn("sweepOutputPointCount--;", source)
+        self.assertIn("pointsSaved--;", source)
         self.assertIn(
-            "scratch.rawPoints[sweepOutputPointCount - 1] = latestSweepPoint;",
+            "scratch.rawPoints[pointsSaved - 1] = latestPoint;",
             source,
         )
 
