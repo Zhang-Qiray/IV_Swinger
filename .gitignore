@@ -58,3 +58,10 @@ target/
 
 # pyenv
 .python-version
+
+# IV Swinger R4 local outputs
+python3/sweep_logs/
+Arduino/Arduino R4/*.pdf
+Arduino/Arduino R4/**/*.zip
+Arduino/Arduino R4/UnoRev4.ino.txt
+Arduino/Arduino R4/UnoRev4/

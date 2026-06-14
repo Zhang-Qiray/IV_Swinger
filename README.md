@@ -29,3 +29,124 @@ YouTube demo videos (IV Swinger 2):
 YouTube demo video (original IV Swinger):
 
 [![IV Swinger Demo](http://img.youtube.com/vi/xNytkONOcW0/0.jpg)](http://www.youtube.com/watch?v=xNytkONOcW0)
+
+## Arduino UNO R4 WiFi teaching firmware
+
+The simplified classroom firmware is in:
+
+```text
+Arduino/Arduino R4/IV_Swinger2_R4
+```
+
+This version is organized for two teaching goals:
+
+1. One-command IV curve capture with automatic scan timing.
+2. Manual scan experiments where students choose the point count and sample
+   delay, then observe how those parameters change the measured curve.
+
+### Student commands
+
+These are the commands normally used during a lab:
+
+| Command | Purpose |
+| --- | --- |
+| `SWEEP` | Automatic IV scan. The firmware prescans the panel, targets 2500 useful points, and keeps 100 extra buffer points in reserve. |
+| `SWEEP_T <points> <sample_delay_us>` | Teaching scan. Students choose the number of points and the delay after each ADC pair. |
+| `VOC [count]` | Measure open-circuit voltage. |
+| `ISC [count]` | Measure short-circuit current. |
+| `STATE` | Show current firmware settings. |
+| `IDLE` | Return relays to the idle safe state. |
+| `HELP` | Show student commands. |
+| `HELP ALL` | Show student and debug commands. |
+
+Examples:
+
+```text
+SWEEP
+SWEEP_T 1200 20
+SWEEP_T 2500 0
+VOC
+ISC
+```
+
+### Output format
+
+`SWEEP` and `SWEEP_T` use the same plotting format:
+
+```text
+Voc = <volts> Isc = <amps> Points = <count> us/Point = <microseconds>
+MPP P = <watts> I = <amps> V = <volts>
+I = <amps> V = <volts>
+I = <amps> V = <volts>
+...
+```
+
+This keeps the Python plotter simple: automatic and manual scans can be plotted
+with the same parser.
+
+### Debug commands
+
+The older duplicate commands were removed. The remaining debug commands are:
+
+| Command | Purpose |
+| --- | --- |
+| `PING` | Quick serial communication check. |
+| `RELAY <1|2|3> <ON|OFF|1|0>` | Manually switch SSR outputs. |
+| `ADC <0|1> [count]` | Read one ADC channel. |
+| `ADC_BOTH [count]` | Read voltage and current ADC channels together. |
+| `ADC_SPEED [count]` | Measure ADC pair-read speed. |
+| `SPI_HZ <1000000..4000000>` | Set MCP3202 SPI speed. |
+| `CAL` | Print calibration constants. |
+| `SET_CAL <name> <value>` | Change a calibration constant. |
+| `VOC_TEST [count]` | Detailed Voc and current-channel noise check. |
+| `ISC_TEST [samples] [settle_ms]` | Detailed short-circuit current test. |
+| `SWEEP_ALL` | Automatic sweep with readable debug summary. |
+| `SWEEP_POINTS` | Detailed CSV-style data from the last formal sweep. |
+| `STOP` | Stop and return to idle relay state. |
+
+Removed legacy commands include `START_SWEEP`, `RAW_SWEEP_TEST`, `RAW_DUMP`,
+`ADC_STATS`, `VOC_ISC_TEST`, `ISC_PATH`, and `SWEEP_PATH`.
+
+### Python plotting
+
+Use the helper script from the `python3` folder:
+
+```bat
+cd python3
+plot_r4_sweep.bat
+```
+
+Choose:
+
+* `A` for automatic `SWEEP`
+* `T` for teaching `SWEEP_T`
+
+In teaching mode, enter different `points delay_us` values without restarting
+the script, for example:
+
+```text
+1200 20
+2500 0
+800 50
+```
+
+The lower-level command is:
+
+```bat
+python r4_sweep_plot.py --port COM3 --command SWEEP_T --points 1200 --delay-us 20 --loop
+```
+
+### Code reading order
+
+For normal study and modification, start with these files:
+
+1. `IV_Swinger2_R4.ino` - setup, loop, and reading order.
+2. `2_Config.ino` - pin map, main constants, calibration values, shared state.
+3. `5_SWEEP.ino` - public `VOC`, `ISC`, `SWEEP`, and `SWEEP_T` commands.
+4. `5a_Measure.ino` - shared `VOC` / `ISC` measurement helpers.
+5. `5b_AutoSweep.ino` - automatic `SWEEP` scan flow.
+6. `5c_Sweep_manually.ino` - manual teaching `SWEEP_T` scan flow.
+7. `5d_Output.ino` - final IV output format and ADC conversion.
+8. `6_Protocol.ino` - line-based serial input and HELP text.
+9. `7_Protocol_Commands.ino` - daily-use command handlers.
+10. `Debugging.ino` - debug tools; skip this during normal reading.
