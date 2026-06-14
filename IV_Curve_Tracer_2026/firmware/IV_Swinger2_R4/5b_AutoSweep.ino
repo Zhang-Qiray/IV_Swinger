@@ -139,26 +139,23 @@ void runFormalSweep() {
   startSweepPath();
   const uint32_t startMicros = micros();
   beginAdcBurst();
-
-  if (sweepSaveAllRawPoints) {
-    saveEveryRawPointDuringFormalSweep(startMicros);
-  } else {
-    savePointsByTimeDuringFormalSweep(startMicros);
-  }
+  captureFormalSweepPoints(startMicros);
 
   endAdcBurst();
   sweepElapsedMicros = micros() - startMicros;
   endSweepPath();
 }
 
-// Fast panels may produce fewer than 2500 raw points. In that case every real
-// point is valuable, so save them all.
-void saveEveryRawPointDuringFormalSweep(uint32_t startMicros) {
+void captureFormalSweepPoints(uint32_t startMicros) {
+  uint32_t nextSaveMicros = 0;
+
   while (sweepRawPointCount < MAX_RAW_SWEEP_POINTS_TO_READ) {
     readLatestSweepPoint();
     sweepRawPointCount++;
 
-    if (sweepOutputPointCount < sweepOutputPointLimit) {
+    const uint32_t elapsedMicros =
+        sweepSaveAllRawPoints ? 0 : micros() - startMicros;
+    if (shouldSaveFormalSweepPoint(elapsedMicros, &nextSaveMicros)) {
       saveLatestSweepPoint();
     }
 
@@ -174,34 +171,22 @@ void saveEveryRawPointDuringFormalSweep(uint32_t startMicros) {
   }
 }
 
-// Slow sweeps can produce more raw points than the output buffer can hold.
-// Save by time so the printed curve still spans the full sweep.
-void savePointsByTimeDuringFormalSweep(uint32_t startMicros) {
-  uint32_t nextSaveMicros = 0;
-
-  while (sweepRawPointCount < MAX_RAW_SWEEP_POINTS_TO_READ) {
-    readLatestSweepPoint();
-    sweepRawPointCount++;
-
-    const uint32_t elapsedMicros = micros() - startMicros;
-    const bool timeToSave = elapsedMicros >= nextSaveMicros;
-
-    if (timeToSave && sweepOutputPointCount < sweepOutputPointLimit) {
-      saveLatestSweepPoint();
-      nextSaveMicros += sweepSaveIntervalMicros;
-    }
-
-    if (sweepOutputCurrentReachedZero()) {
-      sweepCurrentReachedZero = true;
-      sweepReachedEnd = sweepVoltageReachedVocPercent();
-      break;
-    }
-
-    if ((sweepRawPointCount % SWEEP_TIMEOUT_CHECK_EVERY_POINTS == 0) &&
-        elapsedMicros >= MAX_SWEEP_ELAPSED_MICROS) {
-      break;
-    }
+bool shouldSaveFormalSweepPoint(uint32_t elapsedMicros,
+                                uint32_t *nextSaveMicros) {
+  if (sweepOutputPointCount >= sweepOutputPointLimit) {
+    return false;
   }
+
+  if (sweepSaveAllRawPoints) {
+    return true;
+  }
+
+  if (elapsedMicros < *nextSaveMicros) {
+    return false;
+  }
+
+  *nextSaveMicros += sweepSaveIntervalMicros;
+  return true;
 }
 
 // Prepare both endpoint measurements before a sweep starts:

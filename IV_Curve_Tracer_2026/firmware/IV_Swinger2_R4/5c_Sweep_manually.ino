@@ -6,45 +6,28 @@
  */
 
 void runTeachingSweep(Stream &out, int requestedPoints, int sampleDelayMicros) {
-  if (!captureTeachingSweep(out, requestedPoints, sampleDelayMicros)) {
+  const int targetPoints = constrain(requestedPoints, 1, MAX_RAW_POINTS);
+  const int delayMicros = constrain(sampleDelayMicros, 0, 1000);
+
+  sweepOutputPointLimit = targetPoints;
+  sweepRawPointCount = 0;
+  sweepOutputPointCount = 0;
+  sweepElapsedMicros = 0;
+  sweepManualDelayMicros = delayMicros;
+  sweepSaveAllRawPoints = true;
+
+  measureVocForSweep();
+  if (!measureStableIscForSweep()) {
+    out.println(F("ERR SWEEP_T isc_not_stable"));
     out.println(F("END_SWEEP status=error"));
     return;
   }
 
   sweepVocAdcCount = lastVocAdc;
   sweepIscAdcCount = lastIscAdc;
-  sweepSaveAllRawPoints = true;
-
-  printCleanSweepData(out);
-}
-
-bool captureTeachingSweep(Stream &out, int requestedPoints, int sampleDelayMicros) {
-  const int targetPoints = constrain(requestedPoints, 1, MAX_RAW_POINTS);
-  const int delayMicros = constrain(sampleDelayMicros, 0, 1000);
-  sweepOutputPointLimit = targetPoints;
-  sweepRawPointCount = 0;
-  sweepOutputPointCount = 0;
-  sweepElapsedMicros = 0;
-  sweepManualDelayMicros = delayMicros;
-
-  measureVocForSweep();
-  if (!measureStableIscForSweep()) {
-    out.println(F("ERR SWEEP_T isc_not_stable"));
-    return false;
-  }
 
   startSweepPath();
   const uint32_t startMicros = micros();
-  captureFixedTeachingPoints(targetPoints, delayMicros);
-  sweepElapsedMicros = micros() - startMicros;
-  endSweepPath();
-
-  sweepRawPointCount = targetPoints;
-  sweepOutputPointCount = targetPoints;
-  return true;
-}
-
-void captureFixedTeachingPoints(int targetPoints, int delayMicros) {
   beginAdcBurst();
 
   for (int index = 0; index < targetPoints; ++index) {
@@ -59,4 +42,10 @@ void captureFixedTeachingPoints(int targetPoints, int delayMicros) {
   }
 
   endAdcBurst();
+  sweepElapsedMicros = micros() - startMicros;
+  endSweepPath();
+
+  sweepRawPointCount = targetPoints;
+  sweepOutputPointCount = targetPoints;
+  printCleanSweepData(out);
 }
