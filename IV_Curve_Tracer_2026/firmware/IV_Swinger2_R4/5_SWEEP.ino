@@ -17,12 +17,10 @@ const int SWEEP_OUTPUT_POINT_RESERVE = 100;
 const int MAX_SWEEP_OUTPUT_POINTS = MAX_IV_POINTS + SWEEP_OUTPUT_POINT_RESERVE;
 const int VOC_SAMPLE_COUNT = 500;
 
-// Hard stops for a sweep. The physical sweep should normally stop when output
-// current falls near zero. After stopping, the firmware checks whether voltage
-// reached at least 99% of the starting Voc to decide if the sweep was complete.
+// Hard stops for a sweep. The physical sweep stops when the current-channel
+// raw ADC reading has been exactly zero for more than 20 consecutive points.
 const int MAX_RAW_SWEEP_POINTS_TO_READ = 100000;
-const int ZERO_CURRENT_CONFIRM_POINTS = 30;
-const int SWEEP_END_VOC_PERCENT = 99;
+const int ZERO_CURRENT_CONFIRM_POINTS = 21;
 const uint32_t MAX_SWEEP_ELAPSED_MICROS = 500000UL;
 const int SWEEP_TIMEOUT_CHECK_EVERY_POINTS = 16;
 
@@ -32,10 +30,9 @@ int sweepOutputPointLimit = MAX_SWEEP_OUTPUT_POINTS;
 int sweepRawPointCount = 0;
 int sweepOutputPointCount = 0;
 
-// Endpoint measurements and end-of-sweep threshold in raw ADC counts.
+// Endpoint measurements in raw ADC counts.
 int sweepVocAdcCount = 0;
 int sweepIscAdcCount = 0;
-int sweepEndCurrentAdcThreshold = 0;
 
 int zeroCurrentConfirmCount = 0;
 

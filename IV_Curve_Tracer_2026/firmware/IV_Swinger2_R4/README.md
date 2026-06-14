@@ -234,7 +234,7 @@ SWEEP_METHOD auto_prescan_save_all_or_time_interval
 PRESCAN
   complete=1 current_zero=1 isc_stable=1
   measured=1173 elapsed_us=30990 us_per_raw=26.42
-  voc_adc=1622 isc_adc=1192 done_i_adc=20
+  voc_adc=1622 isc_adc=1192 zero_confirm_points=21
 SAVE_MODE
   mode=all_raw
   save_interval_us=26
@@ -250,8 +250,8 @@ Important fields:
 
 | Field | Meaning |
 | --- | --- |
-| `current_zero=1` | Output current reached the zero-current threshold |
-| `complete=1` | The zero-current point also reached at least 99% of the starting Voc |
+| `current_zero=1` | Current-channel raw ADC was 0 for 21 consecutive points |
+| `complete=1` | The sweep reached the current-zero stop condition |
 | `isc_stable=1` | Isc was stable before the sweep |
 | `measured` | Raw ADC point count |
 | `saved` | Points saved for output |
@@ -440,7 +440,7 @@ Things students can observe:
 ```text
 2500 is the normal target point count, not a guaranteed point count. The firmware can save up to 2600 points when the 100-point reserve is needed.
 Scan speed depends on ADC speed, capacitor charging speed, and relay state.
-At the end of the sweep, current falls toward zero and voltage should approach Voc.
+At the end of the sweep, the current-channel raw ADC must reach 0 for 21 consecutive points.
 ```
 
 ## Troubleshooting
@@ -521,23 +521,18 @@ For plotting, use Python `skip_start`, for example:
 10
 ```
 
-### Current Is Not Exactly Zero
+### Sweep Does Not Reach Current Zero
 
-This is normal ADC and circuit noise.
+The automatic sweep ends only when the current-channel raw ADC reading is exactly
+0 for 21 consecutive points.
 
-The firmware does not simply check `current == 0`. It stops the sweep after
-several consecutive points are near the measured current-channel noise floor.
-Then it checks whether the final voltage reached at least 99% of the starting
-Voc to decide whether the sweep is complete. The current must stay near zero
-for 30 consecutive ADC points before the sweep stops.
+If the current channel stays above 0 because of circuit offset or ADC noise, the
+sweep may run until the timeout instead of ending early.
 
 ```text
-current near the noise floor
-30 consecutive confirming points
-final voltage >= 99% of starting Voc
+current-channel raw ADC == 0
+21 consecutive confirming points
 ```
-
-This is more stable than checking for exactly zero current.
 
 ## Suggested Next Steps
 

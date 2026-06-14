@@ -310,8 +310,8 @@ void printSweepPassSummary(Stream &out, const char *prefix) {
   out.print(sweepVocAdcCount);
   out.print(F(" isc_adc="));
   out.print(sweepIscAdcCount);
-  out.print(F(" done_i_adc="));
-  out.println(sweepEndCurrentAdcThreshold);
+  out.print(F(" zero_confirm_points="));
+  out.println(ZERO_CURRENT_CONFIRM_POINTS);
 }
 
 void printSweepResultSummary(Stream &out, const char *prefix) {

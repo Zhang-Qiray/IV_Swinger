@@ -61,6 +61,22 @@ class R4SweepReadabilityTests(unittest.TestCase):
         self.assertIn("captureFormalSweepPoints", source)
         self.assertIn("shouldSaveFormalSweepPoint", source)
 
+    def test_automatic_sweep_ends_after_more_than_twenty_zero_current_reads(self):
+        sweep_config = read_firmware_file("5_SWEEP.ino")
+        auto_sweep = read_firmware_file("5b_AutoSweep.ino")
+        firmware_text = "\n".join(
+            path.read_text(encoding="utf-8") for path in FIRMWARE_DIR.glob("*.ino")
+        )
+
+        self.assertIn("const int ZERO_CURRENT_CONFIRM_POINTS = 21;", sweep_config)
+        self.assertNotIn("SWEEP_END_VOC_PERCENT", firmware_text)
+        self.assertNotIn("sweepVoltageReachedVocPercent", firmware_text)
+        self.assertNotIn("sweepEndCurrentAdcThreshold", firmware_text)
+
+        body = function_body(auto_sweep, "bool sweepOutputCurrentReachedZero(")
+        self.assertIn("latestSweepPoint.i != 0", body)
+        self.assertIn("zeroCurrentConfirmCount >= ZERO_CURRENT_CONFIRM_POINTS", body)
+
 
 if __name__ == "__main__":
     unittest.main()

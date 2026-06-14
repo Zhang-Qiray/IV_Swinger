@@ -114,7 +114,7 @@ void runPrescanSweep() {
 
     if (sweepOutputCurrentReachedZero()) {
       sweepCurrentReachedZero = true;
-      sweepReachedEnd = sweepVoltageReachedVocPercent();
+      sweepReachedEnd = true;
       break;
     }
 
@@ -161,7 +161,7 @@ void captureFormalSweepPoints(uint32_t startMicros) {
 
     if (sweepOutputCurrentReachedZero()) {
       sweepCurrentReachedZero = true;
-      sweepReachedEnd = sweepVoltageReachedVocPercent();
+      sweepReachedEnd = true;
       break;
     }
 
@@ -190,7 +190,7 @@ bool shouldSaveFormalSweepPoint(uint32_t elapsedMicros,
 }
 
 // Prepare both endpoint measurements before a sweep starts:
-//   Voc establishes the voltage end target and current noise floor.
+//   Voc is measured for reporting and current-channel noise tracking.
 //   Isc confirms the short-circuit path is working.
 void preparePanelForSweep() {
   sweepRawPointCount = 0;
@@ -203,7 +203,6 @@ void preparePanelForSweep() {
 
   measureVocForSweep();
   sweepVocAdcCount = lastVocAdc;
-  sweepEndCurrentAdcThreshold = max(lastNoiseMin * 2, 20);
 
   sweepIscReady = measureStableIscForSweep();
   sweepIscAdcCount = lastIscAdc;
@@ -226,24 +225,15 @@ bool sweepTimedOut(uint32_t startMicros) {
   return true;
 }
 
-// Stop only after many consecutive low-current points. This treats "output
-// current has reached zero" as the physical end of the capacitor-charging sweep,
-// while filtering out brief current-channel noise dips.
+// Stop only after more than 20 consecutive raw zero-current points.
 bool sweepOutputCurrentReachedZero() {
-  if (latestSweepPoint.i > sweepEndCurrentAdcThreshold) {
+  if (latestSweepPoint.i != 0) {
     zeroCurrentConfirmCount = 0;
     return false;
   }
 
   zeroCurrentConfirmCount++;
   return zeroCurrentConfirmCount >= ZERO_CURRENT_CONFIRM_POINTS;
-}
-
-// After the current has reached zero, check whether the final voltage is close
-// enough to the starting Voc. This decides if the sweep captured the full curve.
-bool sweepVoltageReachedVocPercent() {
-  const int completeVocAdc = (sweepVocAdcCount * SWEEP_END_VOC_PERCENT) / 100;
-  return latestSweepPoint.v >= completeVocAdc;
 }
 
 void saveLatestSweepPoint() {
