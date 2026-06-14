@@ -83,7 +83,6 @@ The firmware follows the IV Swinger2 SSR-module style wiring.
 | UNO R4 pin | Function |
 | --- | --- |
 | D2 | SSR1, main PV-to-capacitor scan switch |
-| D3 | Optional DS18B20 temperature sensor |
 | D6 | SSR2, capacitor bleed/discharge path |
 | D7 | SSR3, Isc bypass path |
 | D10 | MCP3202 ADC chip select |

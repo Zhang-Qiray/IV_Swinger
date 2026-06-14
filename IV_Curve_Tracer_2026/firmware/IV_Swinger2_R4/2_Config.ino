@@ -25,7 +25,6 @@ const uint8_t PIN_USB_TX = 1;       // D1, USB serial TX, reserved
 
 // IV Swinger 2 SSR module control outputs.
 const uint8_t PIN_SSR1 = 2;         // Main PV-to-capacitor sweep switch
-const uint8_t PIN_ONE_WIRE_BUS = 3; // Optional DS18B20 temperature sensor bus
 const uint8_t PIN_SSR2 = 6;         // Capacitor bleed/discharge path
 const uint8_t PIN_SSR3 = 7;         // Isc bypass around the load capacitors
 
@@ -82,14 +81,12 @@ struct RawPoint {
   uint16_t i;
 };
 
-const int VOC_COUNT_BUCKETS = ADC_MAX;
 // Sweep output buffer. Normal automatic sweeps target 2500 plotted points, but
 // the buffer keeps 100 extra points in reserve in case the formal sweep runs a
 // little slower than the prescan.
 const int MAX_RAW_POINTS = 2600;
 
-union ScratchBuffer {
-  uint16_t vocCounts[VOC_COUNT_BUCKETS];
+struct ScratchBuffer {
   RawPoint rawPoints[MAX_RAW_POINTS];
 };
 
@@ -102,9 +99,7 @@ int lastNoiseMin = ADC_SAT;
 int lastNoiseMax = 0;
 
 bool lastIscStable = false;
-int lastIscLoops = 0;
 int lastIscAdc = 0;
-RawPoint lastIscStablePoints[3];
 
 // ---------------------------------------------------------------------------
 // Runtime calibration command helpers

@@ -59,22 +59,17 @@ void measureIscAverage(int loops) {
   const int minValidCount = 5;
 
   long iSum = 0;
-  long vSum = 0;
   int validCount = 0;
 
   lastIscStable = false;
-  lastIscLoops = 0;
   lastIscAdc = 0;
 
   for (int i = 0; i < count; ++i) {
     int current = readAdc(ADC_CURRENT_CH);
-    int voltage = readAdc(ADC_VOLTAGE_CH);
-
-    lastIscLoops = i + 1;
+    readAdc(ADC_VOLTAGE_CH);
 
     if (current > minIscAdc) {
       iSum += current;
-      vSum += voltage;
       validCount++;
     }
   }
@@ -82,14 +77,6 @@ void measureIscAverage(int loops) {
   if (validCount >= minValidCount) {
     lastIscAdc = iSum / validCount;
     lastIscStable = true;
-
-    RawPoint avgPoint;
-    avgPoint.i = lastIscAdc;
-    avgPoint.v = vSum / validCount;
-
-    lastIscStablePoints[0] = avgPoint;
-    lastIscStablePoints[1] = avgPoint;
-    lastIscStablePoints[2] = avgPoint;
   } else if (validCount > 0) {
     lastIscAdc = iSum / validCount;
   }
