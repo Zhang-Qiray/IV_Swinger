@@ -61,21 +61,48 @@ class R4SweepReadabilityTests(unittest.TestCase):
         self.assertIn("captureFormalSweepPoints", source)
         self.assertIn("shouldSaveFormalSweepPoint", source)
 
-    def test_automatic_sweep_ends_after_more_than_twenty_zero_current_reads(self):
+    def test_automatic_sweep_uses_original_noise_floor_tail_detection(self):
         sweep_config = read_firmware_file("5_SWEEP.ino")
         auto_sweep = read_firmware_file("5b_AutoSweep.ino")
         firmware_text = "\n".join(
             path.read_text(encoding="utf-8") for path in FIRMWARE_DIR.glob("*.ino")
         )
 
-        self.assertIn("const int ZERO_CURRENT_CONFIRM_POINTS = 21;", sweep_config)
+        self.assertIn("const int MIN_SWEEP_DONE_CURRENT_ADC = 20;", sweep_config)
+        self.assertIn("const int SWEEP_DONE_CURRENT_DELTA_ADC = 3;", sweep_config)
+        self.assertIn("int sweepEndCurrentAdcThreshold = 0;", sweep_config)
         self.assertNotIn("SWEEP_END_VOC_PERCENT", firmware_text)
         self.assertNotIn("sweepVoltageReachedVocPercent", firmware_text)
-        self.assertNotIn("sweepEndCurrentAdcThreshold", firmware_text)
+        self.assertNotIn("ZERO_CURRENT_CONFIRM_POINTS", firmware_text)
 
-        body = function_body(auto_sweep, "bool sweepOutputCurrentReachedZero(")
-        self.assertIn("latestSweepPoint.i != 0", body)
-        self.assertIn("zeroCurrentConfirmCount >= ZERO_CURRENT_CONFIRM_POINTS", body)
+        body = function_body(auto_sweep, "bool sweepOutputCurrentReachedTail(")
+        self.assertIn("latestSweepPoint.i < sweepEndCurrentAdcThreshold", body)
+        self.assertIn("currentDelta < SWEEP_DONE_CURRENT_DELTA_ADC", body)
+        self.assertNotIn("latestSweepPoint.i != 0", body)
+
+    def test_isc_stability_uses_original_ssr_three_equal_samples(self):
+        source = read_firmware_file("5a_Measure.ino")
+        body = function_body(source, "void measureIscAverage(")
+
+        self.assertIn("voltage == voltagePrev", body)
+        self.assertIn("voltagePrev == voltagePrevPrev", body)
+        self.assertIn("current == currentPrev", body)
+        self.assertIn("currentPrev == currentPrevPrev", body)
+        self.assertIn("lastIscAdc = currentPrevPrev;", body)
+        self.assertIn("lastIscStable = true;", body)
+
+    def test_formal_sweep_keeps_voltage_order_when_saving(self):
+        source = read_firmware_file("5b_AutoSweep.ino")
+
+        self.assertIn(
+            "latestSweepPoint.v < scratch.rawPoints[sweepOutputPointCount - 1].v",
+            source,
+        )
+        self.assertIn("sweepOutputPointCount--;", source)
+        self.assertIn(
+            "scratch.rawPoints[sweepOutputPointCount - 1] = latestSweepPoint;",
+            source,
+        )
 
 
 if __name__ == "__main__":

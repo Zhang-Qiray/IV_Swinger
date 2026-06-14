@@ -225,21 +225,21 @@ IDLE
 
 Run the automatic formal sweep but print only a human-readable summary.
 
-Use this to check scan completeness, point count, speed, and the selected save strategy.
+Use this to check tail detection, point count, speed, and the selected save strategy.
 
 ```text
 SWEEP_ALL
 OK SWEEP_ALL begin
 SWEEP_METHOD auto_prescan_save_all_or_time_interval
 PRESCAN
-  complete=1 current_zero=1 isc_stable=1
+  complete=1 current_tail=1 isc_stable=1
   measured=1173 elapsed_us=30990 us_per_raw=26.42
-  voc_adc=1622 isc_adc=1192 zero_confirm_points=21
+  voc_adc=1622 isc_adc=1192 done_i_adc=20 done_delta_adc=3
 SAVE_MODE
   mode=all_raw
   save_interval_us=26
 FORMAL
-  complete=1 current_zero=1 saved=987 target=2500 measured=997
+  complete=1 current_tail=1 saved=987 target=2500 measured=997
   save_all_raw=1 timeout_check_every=16
   elapsed_us=30756 us_per_raw=30.85 raw_per_sec=32416.4
   complete=1
@@ -250,9 +250,11 @@ Important fields:
 
 | Field | Meaning |
 | --- | --- |
-| `current_zero=1` | Current-channel raw ADC was 0 for 21 consecutive points |
-| `complete=1` | The sweep reached the current-zero stop condition |
+| `current_tail=1` | Current-channel raw ADC reached the original tail condition |
+| `complete=1` | The sweep reached the current-tail stop condition |
 | `isc_stable=1` | Isc was stable before the sweep |
+| `done_i_adc` | Tail current threshold: `max(noise_floor * 2, 20)` raw ADC counts |
+| `done_delta_adc` | Tail current delta threshold; original value is 3 raw ADC counts |
 | `measured` | Raw ADC point count |
 | `saved` | Points saved for output |
 | `target` | Maximum save limit for this pass; normal target is 2500 plus a 100-point reserve |
@@ -432,7 +434,7 @@ For a student lab:
 4. SWEEP
 5. Plot the curve with Python
 6. Change skip_start or lab conditions and compare curves
-7. Use SWEEP_ALL to inspect timing, real point count, and completeness
+7. Use SWEEP_ALL to inspect timing, real point count, and tail detection
 ```
 
 Things students can observe:
@@ -440,7 +442,7 @@ Things students can observe:
 ```text
 2500 is the normal target point count, not a guaranteed point count. The firmware can save up to 2600 points when the 100-point reserve is needed.
 Scan speed depends on ADC speed, capacitor charging speed, and relay state.
-At the end of the sweep, the current-channel raw ADC must reach 0 for 21 consecutive points.
+At the end of the sweep, the current-channel raw ADC must fall below max(noise_floor * 2, 20) with less than 3 counts of change from the previous point.
 ```
 
 ## Troubleshooting
@@ -521,17 +523,19 @@ For plotting, use Python `skip_start`, for example:
 10
 ```
 
-### Sweep Does Not Reach Current Zero
+### Sweep Does Not Reach Current Tail
 
-The automatic sweep ends only when the current-channel raw ADC reading is exactly
-0 for 21 consecutive points.
+The automatic sweep ends when the current-channel raw ADC is near the measured
+noise floor and is no longer falling quickly.
 
-If the current channel stays above 0 because of circuit offset or ADC noise, the
-sweep may run until the timeout instead of ending early.
+If the current channel remains above the noise-floor tail threshold, the sweep
+may run until the timeout instead of ending early. This is acceptable for
+`SWEEP_T` experiments because the requested point count and delay are the main
+teaching variables.
 
 ```text
-current-channel raw ADC == 0
-21 consecutive confirming points
+current-channel raw ADC < max(noise_floor * 2, 20)
+previous-current minus current < 3
 ```
 
 ## Suggested Next Steps

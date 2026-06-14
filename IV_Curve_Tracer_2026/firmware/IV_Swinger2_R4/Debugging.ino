@@ -292,8 +292,8 @@ void printSweepPassSummary(Stream &out, const char *prefix) {
   out.print(prefix);
   out.print(F("complete="));
   out.print(sweepReachedEnd ? 1 : 0);
-  out.print(F(" current_zero="));
-  out.print(sweepCurrentReachedZero ? 1 : 0);
+  out.print(F(" current_tail="));
+  out.print(sweepCurrentReachedTail ? 1 : 0);
   out.print(F(" isc_stable="));
   out.println(sweepIscReady ? 1 : 0);
 
@@ -310,16 +310,18 @@ void printSweepPassSummary(Stream &out, const char *prefix) {
   out.print(sweepVocAdcCount);
   out.print(F(" isc_adc="));
   out.print(sweepIscAdcCount);
-  out.print(F(" zero_confirm_points="));
-  out.println(ZERO_CURRENT_CONFIRM_POINTS);
+  out.print(F(" done_i_adc="));
+  out.print(sweepEndCurrentAdcThreshold);
+  out.print(F(" done_delta_adc="));
+  out.println(SWEEP_DONE_CURRENT_DELTA_ADC);
 }
 
 void printSweepResultSummary(Stream &out, const char *prefix) {
   out.print(prefix);
   out.print(F("complete="));
   out.print(sweepReachedEnd ? 1 : 0);
-  out.print(F(" current_zero="));
-  out.print(sweepCurrentReachedZero ? 1 : 0);
+  out.print(F(" current_tail="));
+  out.print(sweepCurrentReachedTail ? 1 : 0);
   out.print(F(" saved="));
   out.print(sweepOutputPointCount);
   out.print(F(" target="));

@@ -17,10 +17,12 @@ const int SWEEP_OUTPUT_POINT_RESERVE = 100;
 const int MAX_SWEEP_OUTPUT_POINTS = MAX_IV_POINTS + SWEEP_OUTPUT_POINT_RESERVE;
 const int VOC_SAMPLE_COUNT = 500;
 
-// Hard stops for a sweep. The physical sweep stops when the current-channel
-// raw ADC reading has been exactly zero for more than 20 consecutive points.
+// Hard stops for a sweep. The physical sweep stops near the current tail when
+// raw current falls below max(noise_floor * 2, 20) and is no longer changing
+// quickly, matching the original SSR-module method.
 const int MAX_RAW_SWEEP_POINTS_TO_READ = 100000;
-const int ZERO_CURRENT_CONFIRM_POINTS = 21;
+const int MIN_SWEEP_DONE_CURRENT_ADC = 20;
+const int SWEEP_DONE_CURRENT_DELTA_ADC = 3;
 const uint32_t MAX_SWEEP_ELAPSED_MICROS = 500000UL;
 const int SWEEP_TIMEOUT_CHECK_EVERY_POINTS = 16;
 
@@ -34,10 +36,11 @@ int sweepOutputPointCount = 0;
 int sweepVocAdcCount = 0;
 int sweepIscAdcCount = 0;
 
-int zeroCurrentConfirmCount = 0;
+int sweepEndCurrentAdcThreshold = 0;
+int sweepPreviousCurrentAdc = 0;
 
 bool sweepReachedEnd = false;
-bool sweepCurrentReachedZero = false;
+bool sweepCurrentReachedTail = false;
 bool sweepIscReady = false;
 bool sweepSaveAllRawPoints = false;
 

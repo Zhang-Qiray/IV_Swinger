@@ -42,9 +42,8 @@ void runAutomaticSweep(Stream &out, int requestedOutputPoints, bool verboseOutpu
   }
 }
 
-// The prescan is allowed to reject the sweep before we spend time on the real
-// capture. That keeps the normal SWEEP output clean: either useful IV points or
-// a short error message.
+// The prescan only rejects a sweep if the Isc path cannot be confirmed. A
+// timeout before the tail still teaches useful capacitor-sweep behavior.
 bool automaticPrescanSucceeded(Stream &out, bool verboseOutput) {
   if (verboseOutput) {
     out.println(F("PRESCAN"));
@@ -53,12 +52,6 @@ bool automaticPrescanSucceeded(Stream &out, bool verboseOutput) {
 
   if (!sweepIscReady) {
     out.println(F("ERR SWEEP prescan_isc_not_stable"));
-    out.println(F("END_SWEEP status=error"));
-    return false;
-  }
-
-  if (!sweepReachedEnd) {
-    out.println(F("ERR SWEEP prescan_incomplete"));
     out.println(F("END_SWEEP status=error"));
     return false;
   }
@@ -112,8 +105,8 @@ void runPrescanSweep() {
     readLatestSweepPoint();
     sweepRawPointCount++;
 
-    if (sweepOutputCurrentReachedZero()) {
-      sweepCurrentReachedZero = true;
+    if (sweepOutputCurrentReachedTail()) {
+      sweepCurrentReachedTail = true;
       sweepReachedEnd = true;
       break;
     }
@@ -159,8 +152,8 @@ void captureFormalSweepPoints(uint32_t startMicros) {
       saveLatestSweepPoint();
     }
 
-    if (sweepOutputCurrentReachedZero()) {
-      sweepCurrentReachedZero = true;
+    if (sweepOutputCurrentReachedTail()) {
+      sweepCurrentReachedTail = true;
       sweepReachedEnd = true;
       break;
     }
@@ -195,17 +188,20 @@ bool shouldSaveFormalSweepPoint(uint32_t elapsedMicros,
 void preparePanelForSweep() {
   sweepRawPointCount = 0;
   sweepOutputPointCount = 0;
-  zeroCurrentConfirmCount = 0;
+  sweepEndCurrentAdcThreshold = MIN_SWEEP_DONE_CURRENT_ADC;
+  sweepPreviousCurrentAdc = 0;
   sweepReachedEnd = false;
-  sweepCurrentReachedZero = false;
+  sweepCurrentReachedTail = false;
   sweepIscReady = false;
   sweepElapsedMicros = 0;
 
   measureVocForSweep();
   sweepVocAdcCount = lastVocAdc;
+  sweepEndCurrentAdcThreshold = max(lastNoiseMin << 1, MIN_SWEEP_DONE_CURRENT_ADC);
 
   sweepIscReady = measureStableIscForSweep();
   sweepIscAdcCount = lastIscAdc;
+  sweepPreviousCurrentAdc = sweepIscAdcCount;
 }
 
 void readLatestSweepPoint() {
@@ -225,18 +221,32 @@ bool sweepTimedOut(uint32_t startMicros) {
   return true;
 }
 
-// Stop only after more than 20 consecutive raw zero-current points.
-bool sweepOutputCurrentReachedZero() {
-  if (latestSweepPoint.i != 0) {
-    zeroCurrentConfirmCount = 0;
-    return false;
-  }
+// Stop when the current is near the noise floor and is no longer falling fast.
+bool sweepOutputCurrentReachedTail() {
+  const int currentDelta = sweepPreviousCurrentAdc - latestSweepPoint.i;
+  sweepPreviousCurrentAdc = latestSweepPoint.i;
 
-  zeroCurrentConfirmCount++;
-  return zeroCurrentConfirmCount >= ZERO_CURRENT_CONFIRM_POINTS;
+  return (latestSweepPoint.i < sweepEndCurrentAdcThreshold) &&
+         (currentDelta < SWEEP_DONE_CURRENT_DELTA_ADC);
 }
 
 void saveLatestSweepPoint() {
+  if (sweepOutputPointCount == 0) {
+    scratch.rawPoints[sweepOutputPointCount] = latestSweepPoint;
+    sweepOutputPointCount++;
+    return;
+  }
+
+  if (latestSweepPoint.v < scratch.rawPoints[sweepOutputPointCount - 1].v) {
+    while ((sweepOutputPointCount > 1) &&
+           (latestSweepPoint.v < scratch.rawPoints[sweepOutputPointCount - 2].v)) {
+      sweepOutputPointCount--;
+    }
+
+    scratch.rawPoints[sweepOutputPointCount - 1] = latestSweepPoint;
+    return;
+  }
+
   scratch.rawPoints[sweepOutputPointCount] = latestSweepPoint;
   sweepOutputPointCount++;
 }

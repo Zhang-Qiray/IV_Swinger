@@ -56,28 +56,32 @@ void measureVocAverage(int loops) {
 void measureIscAverage(int loops) {
   const int count = constrain(loops, 1, 2000);
   const int minIscAdc = min_isc_adc + lastNoiseMin;
-  const int minValidCount = 5;
 
-  long iSum = 0;
-  int validCount = 0;
+  int voltagePrevPrev = ADC_SAT;
+  int voltagePrev = ADC_SAT;
+  int currentPrevPrev = 0;
+  int currentPrev = 0;
 
   lastIscStable = false;
   lastIscAdc = 0;
 
   for (int i = 0; i < count; ++i) {
     int current = readAdc(ADC_CURRENT_CH);
-    readAdc(ADC_VOLTAGE_CH);
+    int voltage = readAdc(ADC_VOLTAGE_CH);
 
     if (current > minIscAdc) {
-      iSum += current;
-      validCount++;
-    }
-  }
+      if ((voltage == voltagePrev) && (voltagePrev == voltagePrevPrev) &&
+          (current == currentPrev) && (currentPrev == currentPrevPrev)) {
+        lastIscAdc = currentPrevPrev;
+        lastIscStable = true;
+        return;
+      }
 
-  if (validCount >= minValidCount) {
-    lastIscAdc = iSum / validCount;
-    lastIscStable = true;
-  } else if (validCount > 0) {
-    lastIscAdc = iSum / validCount;
+      voltagePrevPrev = voltagePrev;
+      currentPrevPrev = currentPrev;
+      voltagePrev = voltage;
+      currentPrev = current;
+      lastIscAdc = current;
+    }
   }
 }
