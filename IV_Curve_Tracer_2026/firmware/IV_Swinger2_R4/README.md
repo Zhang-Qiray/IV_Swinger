@@ -132,7 +132,7 @@ Example:
 ```text
 GROUP student
 CMD SWEEP  -> auto IV curve, target_points=2500
-NOTE SWEEP reserve_points=100
+NOTE SWEEP reserve_points=250
 CMD VOC  -> open-circuit voltage, samples=500
 CMD ISC  -> short-circuit current, samples=500
 CMD STATE
@@ -178,7 +178,7 @@ ERR ISC not_stable
 
 Run an automatic formal I-V sweep.
 
-`SWEEP` does not take a point-count argument. It targets `MAX_IV_POINTS = 2500` plotted points and keeps 100 extra buffer points in reserve in case the formal sweep is slightly slower than the prescan.
+`SWEEP` does not take a point-count argument. It targets `MAX_IV_POINTS = 2500` plotted points and keeps a reserve of `max(100, target_points / 10)` points. With the default target this is 250 reserve points, so the automatic sweep may save up to 2750 points.
 
 The first line reports the measured endpoints and output point count:
 
@@ -257,7 +257,7 @@ Important fields:
 | `done_delta_adc` | Tail current delta threshold; original value is 3 raw ADC counts |
 | `measured` | Raw ADC point count |
 | `saved` | Points saved for output |
-| `target` | Maximum save limit for this pass; normal target is 2500 plus a 100-point reserve |
+| `target` | Maximum save limit for this pass; normal target is 2500 plus a 10% reserve |
 | `elapsed_us` | Sweep duration in microseconds |
 | `us_per_raw` | Average time per raw point |
 | `raw_per_sec` | Raw point rate |
@@ -377,7 +377,7 @@ If prescan measured points exceed 2500:
   read ADC as fast as possible, but save by prescan-based time interval
 ```
 
-The formal sweep may save up to 2600 points. The extra 100 points are reserve
+The formal sweep may save up to 2750 points. The extra 250 points are reserve
 space for runs where the second sweep takes a little longer than the prescan.
 
 `SWEEP` does not add artificial Isc or Voc points. The plotted data represents the real points captured during that sweep.
@@ -440,7 +440,7 @@ For a student lab:
 Things students can observe:
 
 ```text
-2500 is the normal target point count, not a guaranteed point count. The firmware can save up to 2600 points when the 100-point reserve is needed.
+2500 is the normal target point count, not a guaranteed point count. The firmware can save up to 2750 points when the 10% reserve is needed.
 Scan speed depends on ADC speed, capacitor charging speed, and relay state.
 At the end of the sweep, the current-channel raw ADC must fall below max(noise_floor * 2, 20) with less than 3 counts of change from the previous point.
 ```
@@ -494,7 +494,7 @@ SWEEP
 
 This is normal.
 
-2500 is the normal target output count, not a guaranteed output count. The firmware has a 2600-point buffer, with the last 100 points reserved for sweep-to-sweep timing variation. The real point count depends on:
+2500 is the normal target output count, not a guaranteed output count. The firmware has a 2750-point buffer, with the last 250 points reserved for sweep-to-sweep timing variation. The real point count depends on:
 
 ```text
 PV panel condition

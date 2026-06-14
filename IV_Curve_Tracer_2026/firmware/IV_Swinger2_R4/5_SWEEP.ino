@@ -13,8 +13,9 @@
  */
 
 const int MAX_IV_POINTS = 2500;
-const int SWEEP_OUTPUT_POINT_RESERVE = 100;
-const int MAX_SWEEP_OUTPUT_POINTS = MAX_IV_POINTS + SWEEP_OUTPUT_POINT_RESERVE;
+const int MIN_SWEEP_OUTPUT_POINT_RESERVE = 100;
+const int SWEEP_OUTPUT_RESERVE_DIVISOR = 10;
+const int MAX_SWEEP_OUTPUT_POINTS = MAX_RAW_POINTS;
 const int VOC_SAMPLE_COUNT = 500;
 
 // Hard stops for a sweep. The physical sweep stops near the current tail when
@@ -50,6 +51,11 @@ uint32_t sweepSaveIntervalMicros = 1;
 int sweepManualDelayMicros = -1;  // -1 means normal SWEEP, 0..1000 means SWEEP_T.
 
 RawPoint latestPoint;
+
+int sweepReserveForTarget(int targetPoints) {
+  return max(MIN_SWEEP_OUTPUT_POINT_RESERVE,
+             targetPoints / SWEEP_OUTPUT_RESERVE_DIVISOR);
+}
 
 void handleVoc() {
   measureVocForSweep();

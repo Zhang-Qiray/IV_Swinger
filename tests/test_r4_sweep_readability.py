@@ -11,7 +11,10 @@ def read_firmware_file(name: str) -> str:
 
 
 def function_body(source: str, signature: str) -> str:
-    start = source.index(signature)
+    try:
+        start = source.index(signature)
+    except ValueError as exc:
+        raise AssertionError(f"Function signature not found: {signature}") from exc
     brace_start = source.index("{", start)
     depth = 0
     for index in range(brace_start, len(source)):
@@ -117,8 +120,73 @@ class R4SweepReadabilityTests(unittest.TestCase):
 
         self.assertNotIn("saveEveryRawPointDuringFormalSweep", source)
         self.assertNotIn("savePointsByTimeDuringFormalSweep", source)
-        self.assertIn("captureFormalSweepPoints", source)
-        self.assertIn("shouldSaveFormalSweepPoint", source)
+        self.assertIn("captureFormalPoints", source)
+        self.assertIn("shouldSavePointNow", source)
+
+    def test_automatic_sweep_main_flow_reads_like_a_story(self):
+        source = read_firmware_file("5b_AutoSweep.ino")
+        body = function_body(source, "void runAutomaticSweep(")
+
+        assert_in_order(
+            self,
+            body,
+            [
+                "runPrescanSweep();",
+                "reportPrescanAndCheckIsc(out, verboseOutput)",
+                "chooseHowToSaveFormalPoints(requestedOutputPoints);",
+                "settleBeforeFormalSweep();",
+                "runFormalSweep();",
+                "reportFormalSweepAndCheckIsc(out, verboseOutput)",
+                "printCleanSweepData(out);",
+            ],
+        )
+
+        for old_name in [
+            "automaticPrescanSucceeded",
+            "chooseOutputSaveStrategy",
+            "formalSweepSucceeded",
+            "preparePanelForSweep",
+            "readLatestSweepPoint",
+            "sweepOutputCurrentReachedTail",
+            "sweepTimedOut",
+            "shouldSaveFormalSweepPoint",
+            "saveLatestSweepPoint",
+        ]:
+            self.assertNotIn(old_name, source)
+
+        for new_name in [
+            "reportPrescanAndCheckIsc",
+            "chooseHowToSaveFormalPoints",
+            "reportFormalSweepAndCheckIsc",
+            "measureSweepEndpoints",
+            "readIvPoint",
+            "isAtCurrentTail",
+            "hasSweepTimedOut",
+            "shouldSavePointNow",
+            "savePointKeepingVoltageOrder",
+        ]:
+            self.assertIn(new_name, source)
+
+    def test_automatic_sweep_uses_target_based_reserve_buffer(self):
+        config = read_firmware_file("2_Config.ino")
+        sweep_entry = read_firmware_file("5_SWEEP.ino")
+        auto_sweep = read_firmware_file("5b_AutoSweep.ino")
+
+        self.assertIn("const int MAX_RAW_POINTS = 2750;", config)
+        self.assertIn("const int MIN_SWEEP_OUTPUT_POINT_RESERVE = 100;", sweep_entry)
+        self.assertIn("const int SWEEP_OUTPUT_RESERVE_DIVISOR = 10;", sweep_entry)
+        self.assertIn(
+            "const int MAX_SWEEP_OUTPUT_POINTS = MAX_RAW_POINTS;",
+            sweep_entry,
+        )
+
+        body = function_body(sweep_entry, "int sweepReserveForTarget(")
+        self.assertIn("targetPoints / SWEEP_OUTPUT_RESERVE_DIVISOR", body)
+        self.assertIn("max(MIN_SWEEP_OUTPUT_POINT_RESERVE", body)
+
+        run_body = function_body(auto_sweep, "void runAutomaticSweep(")
+        self.assertIn("sweepReserveForTarget(requestedOutputPoints)", run_body)
+        self.assertIn("min(requestedOutputPoints + reservePoints, MAX_RAW_POINTS)", run_body)
 
     def test_automatic_sweep_uses_original_noise_floor_tail_detection(self):
         sweep_config = read_firmware_file("5_SWEEP.ino")
@@ -134,7 +202,7 @@ class R4SweepReadabilityTests(unittest.TestCase):
         self.assertNotIn("sweepVoltageReachedVocPercent", firmware_text)
         self.assertNotIn("ZERO_CURRENT_CONFIRM_POINTS", firmware_text)
 
-        body = function_body(auto_sweep, "bool sweepOutputCurrentReachedTail(")
+        body = function_body(auto_sweep, "bool isAtCurrentTail(")
         self.assertIn("latestPoint.i < tailCurrentAdc", body)
         self.assertIn("currentDelta < SWEEP_DONE_CURRENT_DELTA_ADC", body)
         self.assertNotIn("latestPoint.i != 0", body)
@@ -153,15 +221,11 @@ class R4SweepReadabilityTests(unittest.TestCase):
     def test_formal_sweep_keeps_voltage_order_when_saving(self):
         source = read_firmware_file("5b_AutoSweep.ino")
 
-        self.assertIn(
-            "latestPoint.v < scratch.rawPoints[pointsSaved - 1].v",
-            source,
-        )
+        body = function_body(source, "void savePointKeepingVoltageOrder(")
+
+        self.assertIn("latestPoint.v < scratch.rawPoints[pointsSaved - 1].v", body)
         self.assertIn("pointsSaved--;", source)
-        self.assertIn(
-            "scratch.rawPoints[pointsSaved - 1] = latestPoint;",
-            source,
-        )
+        self.assertIn("scratch.rawPoints[pointsSaved - 1] = latestPoint;", body)
 
 
 if __name__ == "__main__":

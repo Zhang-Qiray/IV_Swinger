@@ -54,7 +54,7 @@ void printHelp(Stream &out, bool includeDebug) {
   out.print(F("CMD SWEEP  -> auto IV curve, target_points="));
   out.println(MAX_IV_POINTS);
   out.print(F("NOTE SWEEP reserve_points="));
-  out.println(SWEEP_OUTPUT_POINT_RESERVE);
+  out.println(sweepReserveForTarget(MAX_IV_POINTS));
   out.print(F("CMD SWEEP_T <points<="));
   out.print(MAX_RAW_POINTS);
   out.println(F("> <sample_delay_us<=1000>  -> manual teaching scan"));

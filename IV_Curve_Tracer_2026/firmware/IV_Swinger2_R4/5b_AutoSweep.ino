@@ -8,8 +8,8 @@
  */
 
 void runAutomaticSweep(Stream &out, int requestedOutputPoints, bool verboseOutput) {
-  saveLimit =
-      min(requestedOutputPoints + SWEEP_OUTPUT_POINT_RESERVE, MAX_RAW_POINTS);
+  const int reservePoints = sweepReserveForTarget(requestedOutputPoints);
+  saveLimit = min(requestedOutputPoints + reservePoints, MAX_RAW_POINTS);
   sweepSaveIntervalMicros = 0;
   sweepSaveAllRawPoints = false;
   sweepManualDelayMicros = -1;
@@ -20,17 +20,16 @@ void runAutomaticSweep(Stream &out, int requestedOutputPoints, bool verboseOutpu
   }
 
   runPrescanSweep();
-  if (!automaticPrescanSucceeded(out, verboseOutput)) {
+  if (!reportPrescanAndCheckIsc(out, verboseOutput)) {
     return;
   }
 
-  chooseOutputSaveStrategy(requestedOutputPoints);
+  chooseHowToSaveFormalPoints(requestedOutputPoints);
 
-  setIdleState();
-  delay(80);
+  settleBeforeFormalSweep();
 
   runFormalSweep();
-  if (!formalSweepSucceeded(out, verboseOutput)) {
+  if (!reportFormalSweepAndCheckIsc(out, verboseOutput)) {
     return;
   }
 
@@ -44,7 +43,7 @@ void runAutomaticSweep(Stream &out, int requestedOutputPoints, bool verboseOutpu
 
 // The prescan only rejects a sweep if the Isc path cannot be confirmed. A
 // timeout before the tail still teaches useful capacitor-sweep behavior.
-bool automaticPrescanSucceeded(Stream &out, bool verboseOutput) {
+bool reportPrescanAndCheckIsc(Stream &out, bool verboseOutput) {
   if (verboseOutput) {
     out.println(F("PRESCAN"));
     printSweepPassSummary(out, "  ");
@@ -59,9 +58,10 @@ bool automaticPrescanSucceeded(Stream &out, bool verboseOutput) {
   return true;
 }
 
-// Use the requested point count to choose the normal spacing, but allow the
-// reserve buffer to absorb a slightly slower formal sweep.
-void chooseOutputSaveStrategy(int requestedOutputPoints) {
+// Prescan gives only a rough duration. Different panels and light conditions
+// can make the formal sweep shorter or longer, so save points by elapsed time
+// and let the reserve buffer absorb moderate mismatch.
+void chooseHowToSaveFormalPoints(int requestedOutputPoints) {
   sweepSaveIntervalMicros =
       max(1UL, sweepElapsedMicros / max(1, requestedOutputPoints - 1));
   sweepSaveAllRawPoints = rawPointsRead <= requestedOutputPoints;
@@ -69,7 +69,7 @@ void chooseOutputSaveStrategy(int requestedOutputPoints) {
 
 // A formal sweep with a valid Isc is useful even if it times out before the
 // ideal end condition. In verbose mode we report that as a warning.
-bool formalSweepSucceeded(Stream &out, bool verboseOutput) {
+bool reportFormalSweepAndCheckIsc(Stream &out, bool verboseOutput) {
   if (!sweepIscReady) {
     if (verboseOutput) {
       printSweepAllSummary(out);
@@ -90,9 +90,14 @@ bool formalSweepSucceeded(Stream &out, bool verboseOutput) {
   return true;
 }
 
+void settleBeforeFormalSweep() {
+  setIdleState();
+  delay(80);
+}
+
 // First pass: measure how long this panel/capacitor sweep really takes.
 void runPrescanSweep() {
-  preparePanelForSweep();
+  measureSweepEndpoints();
   if (!sweepIscReady) {
     return;
   }
@@ -102,10 +107,10 @@ void runPrescanSweep() {
   beginAdcBurst();
 
   while (rawPointsRead < MAX_RAW_SWEEP_POINTS_TO_READ) {
-    readLatestSweepPoint();
+    readIvPoint();
     rawPointsRead++;
 
-    if (sweepOutputCurrentReachedTail()) {
+    if (isAtCurrentTail()) {
       reachedTail = true;
       sweepReachedEnd = true;
       break;
@@ -124,7 +129,7 @@ void runPrescanSweep() {
 // Second pass: capture points for output using the save strategy chosen from
 // the prescan.
 void runFormalSweep() {
-  preparePanelForSweep();
+  measureSweepEndpoints();
   if (!sweepIscReady) {
     return;
   }
@@ -132,40 +137,39 @@ void runFormalSweep() {
   startSweepPath();
   const uint32_t startMicros = micros();
   beginAdcBurst();
-  captureFormalSweepPoints(startMicros);
+  captureFormalPoints(startMicros);
 
   endAdcBurst();
   sweepElapsedMicros = micros() - startMicros;
   endSweepPath();
 }
 
-void captureFormalSweepPoints(uint32_t startMicros) {
+void captureFormalPoints(uint32_t startMicros) {
   uint32_t nextSaveMicros = 0;
 
   while (rawPointsRead < MAX_RAW_SWEEP_POINTS_TO_READ) {
-    readLatestSweepPoint();
+    readIvPoint();
     rawPointsRead++;
 
     const uint32_t elapsedMicros =
         sweepSaveAllRawPoints ? 0 : micros() - startMicros;
-    if (shouldSaveFormalSweepPoint(elapsedMicros, &nextSaveMicros)) {
-      saveLatestSweepPoint();
+    if (shouldSavePointNow(elapsedMicros, &nextSaveMicros)) {
+      savePointKeepingVoltageOrder();
     }
 
-    if (sweepOutputCurrentReachedTail()) {
+    if (isAtCurrentTail()) {
       reachedTail = true;
       sweepReachedEnd = true;
       break;
     }
 
-    if (sweepTimedOut(startMicros)) {
+    if (hasSweepTimedOut(startMicros)) {
       break;
     }
   }
 }
 
-bool shouldSaveFormalSweepPoint(uint32_t elapsedMicros,
-                                uint32_t *nextSaveMicros) {
+bool shouldSavePointNow(uint32_t elapsedMicros, uint32_t *nextSaveMicros) {
   if (pointsSaved >= saveLimit) {
     return false;
   }
@@ -185,7 +189,7 @@ bool shouldSaveFormalSweepPoint(uint32_t elapsedMicros,
 // Prepare both endpoint measurements before a sweep starts:
 //   Voc is measured for reporting and current-channel noise tracking.
 //   Isc confirms the short-circuit path is working.
-void preparePanelForSweep() {
+void measureSweepEndpoints() {
   rawPointsRead = 0;
   pointsSaved = 0;
   tailCurrentAdc = MIN_SWEEP_DONE_CURRENT_ADC;
@@ -204,12 +208,12 @@ void preparePanelForSweep() {
   prevCurrentAdc = sweepIscAdcCount;
 }
 
-void readLatestSweepPoint() {
+void readIvPoint() {
   latestPoint.i = readAdcInTransaction(ADC_CURRENT_CH);
   latestPoint.v = readAdcInTransaction(ADC_VOLTAGE_CH);
 }
 
-bool sweepTimedOut(uint32_t startMicros) {
+bool hasSweepTimedOut(uint32_t startMicros) {
   if (rawPointsRead % SWEEP_TIMEOUT_CHECK_EVERY_POINTS != 0) {
     return false;
   }
@@ -222,7 +226,7 @@ bool sweepTimedOut(uint32_t startMicros) {
 }
 
 // Stop when the current is near the noise floor and is no longer falling fast.
-bool sweepOutputCurrentReachedTail() {
+bool isAtCurrentTail() {
   const int currentDelta = prevCurrentAdc - latestPoint.i;
   prevCurrentAdc = latestPoint.i;
 
@@ -230,7 +234,7 @@ bool sweepOutputCurrentReachedTail() {
          (currentDelta < SWEEP_DONE_CURRENT_DELTA_ADC);
 }
 
-void saveLatestSweepPoint() {
+void savePointKeepingVoltageOrder() {
   if (pointsSaved == 0) {
     scratch.rawPoints[pointsSaved] = latestPoint;
     pointsSaved++;

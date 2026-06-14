@@ -81,10 +81,11 @@ struct RawPoint {
   uint16_t i;
 };
 
-// Sweep output buffer. Normal automatic sweeps target 2500 plotted points, but
-// the buffer keeps 100 extra points in reserve in case the formal sweep runs a
-// little slower than the prescan.
-const int MAX_RAW_POINTS = 2600;
+// Sweep output buffer. Normal automatic sweeps target 2500 plotted points and
+// keep 10% reserve, so the default automatic save limit can grow to 2750. The
+// extra space absorbs normal prescan/formal timing mismatch without pretending
+// the prescan can predict every panel exactly.
+const int MAX_RAW_POINTS = 2750;
 
 struct ScratchBuffer {
   RawPoint rawPoints[MAX_RAW_POINTS];
