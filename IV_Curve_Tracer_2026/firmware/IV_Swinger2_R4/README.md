@@ -134,8 +134,8 @@ Example:
 GROUP student
 CMD SWEEP  -> auto IV curve, target_points=2500
 NOTE SWEEP reserve_points=100
-CMD VOC [count]  -> open-circuit voltage
-CMD ISC [count]  -> short-circuit current
+CMD VOC  -> open-circuit voltage, samples=500
+CMD ISC  -> short-circuit current, samples=500
 CMD STATE
 CMD IDLE
 CMD HELP ALL  -> show teacher/debug commands
@@ -151,21 +151,21 @@ This keeps the student interface simple without removing any development tools.
 
 ## Student Commands
 
-### `VOC [count]`
+### `VOC`
 
 Measure open-circuit voltage. Output is a single number in volts.
 
 ```text
-VOC 400
+VOC
 40.7603
 ```
 
-### `ISC [count]`
+### `ISC`
 
 Measure short-circuit current. Output is a single number in amps.
 
 ```text
-ISC 400
+ISC
 3.6786
 ```
 
@@ -185,12 +185,13 @@ The first line reports the measured endpoints and output point count:
 
 ```text
 SWEEP
-Voc=40.7603 Isc=3.6786 Points=987
-I=3.7130 V=0.3265
-I=3.7130 V=0.2763
-I=3.7068 V=0.2511
+Voc = 40.7603 Isc = 3.6786 Points = 987 us/Point = 30.85
+MPP P = 80.1234 I = 2.1234 V = 37.7270
+I = 3.7130 V = 0.3265
+I = 3.7130 V = 0.2763
+I = 3.7068 V = 0.2511
 ...
-I=0.0470 V=40.4589
+I = 0.0470 V = 40.4589
 ```
 
 Each point line is:
@@ -207,7 +208,7 @@ Show runtime state:
 
 ```text
 STATE
-STATE spi_hz=4000000 min_isc_adc=100 isc_stable_adc=5 adc_ref=4.8770 v_scale=1.004400 i_scale=1.000000
+STATE spi_hz=4000000 min_isc_adc=100 isc_stable_adc=5 adc_ref=4.8800 v_scale=1.000000 i_scale=1.000000
 RELAY_STATE ssr1=OFF ssr2=ON ssr3=OFF
 ```
 
@@ -300,8 +301,8 @@ CAL
 Important current defaults:
 
 ```text
-adc_ref = 4.877
-v_scale = 1.0044
+adc_ref = 4.880
+v_scale = 1.0000
 i_scale = 1.0
 ```
 
@@ -310,8 +311,8 @@ i_scale = 1.0
 Temporarily change one calibration value:
 
 ```text
-SET_CAL adc_ref 4.877
-SET_CAL v_scale 1.0044
+SET_CAL adc_ref 4.880
+SET_CAL v_scale 1.0000
 SET_CAL i_scale 1.0000
 ```
 
@@ -382,6 +383,19 @@ space for runs where the second sweep takes a little longer than the prescan.
 
 ## Python Plotter
 
+Use the helper from the R4 tools folder:
+
+```bat
+cd IV_Curve_Tracer_2026\tools
+plot_r4_sweep.bat
+```
+
+The lower-level command is:
+
+```bat
+python r4_sweep_plot.py --port COM3 --command SWEEP_T --points 1200 --delay-us 20 --loop
+```
+
 ```text
 SWEEP
 ```
@@ -414,8 +428,8 @@ For a student lab:
 
 ```text
 1. STATE
-2. VOC 400
-3. ISC 400
+2. VOC
+3. ISC
 4. SWEEP
 5. Plot the curve with Python
 6. Change skip_start or lab conditions and compare curves

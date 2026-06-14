@@ -1,6 +1,8 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+set PYTHON_EXE=python
+if exist ".venv\Scripts\python.exe" set PYTHON_EXE=.venv\Scripts\python.exe
 set PORT=COM3
 set POINTS=2500
 echo.
@@ -17,8 +19,8 @@ set /p MODE=Mode [%MODE%]:
 if "%MODE%"=="" set MODE=A
 echo.
 if /I "%MODE%"=="T" (
-  ".venv\Scripts\python.exe" r4_sweep_plot.py --port %PORT% --command SWEEP_T --points %POINTS% --loop
+  "%PYTHON_EXE%" r4_sweep_plot.py --port "%PORT%" --command SWEEP_T --points %POINTS% --loop
 ) else (
-  ".venv\Scripts\python.exe" r4_sweep_plot.py --port %PORT% --command SWEEP --points %POINTS% --loop
+  "%PYTHON_EXE%" r4_sweep_plot.py --port "%PORT%" --command SWEEP --points %POINTS% --loop
 )
 pause

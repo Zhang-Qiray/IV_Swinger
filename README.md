@@ -35,7 +35,7 @@ YouTube demo video (original IV Swinger):
 The simplified classroom firmware is in:
 
 ```text
-Arduino/Arduino R4/IV_Swinger2_R4
+IV_Curve_Tracer_2026/firmware/IV_Swinger2_R4
 ```
 
 This version is organized for two teaching goals:
@@ -52,8 +52,8 @@ These are the commands normally used during a lab:
 | --- | --- |
 | `SWEEP` | Automatic IV scan. The firmware prescans the panel, targets 2500 useful points, and keeps 100 extra buffer points in reserve. |
 | `SWEEP_T <points> <sample_delay_us>` | Teaching scan. Students choose the number of points and the delay after each ADC pair. |
-| `VOC [count]` | Measure open-circuit voltage. |
-| `ISC [count]` | Measure short-circuit current. |
+| `VOC` | Measure open-circuit voltage using the fixed firmware sample count. |
+| `ISC` | Measure short-circuit current using the fixed firmware sample count. |
 | `STATE` | Show current firmware settings. |
 | `IDLE` | Return relays to the idle safe state. |
 | `HELP` | Show student commands. |
@@ -109,10 +109,10 @@ Removed legacy commands include `START_SWEEP`, `RAW_SWEEP_TEST`, `RAW_DUMP`,
 
 ### Python plotting
 
-Use the helper script from the `python3` folder:
+Use the helper script from the R4 tools folder:
 
 ```bat
-cd python3
+cd IV_Curve_Tracer_2026\tools
 plot_r4_sweep.bat
 ```
 

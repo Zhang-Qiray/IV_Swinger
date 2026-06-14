@@ -4,8 +4,7 @@
 This tool talks directly to the IV_Swinger2_R4 firmware over USB serial:
 
   1. Sends SWEEP by default, or SWEEP_T <points> <delay_us>
-  2. Reads calibrated SWEEP output from both old and current firmware:
-       Voc=<volts> Isc=<amps> Points=<count>
+  2. Reads calibrated SWEEP output from the current firmware:
        Voc = <volts> Isc = <amps> Points = <count> us/Point = <microseconds>
        I=<amps> V=<volts>
        I = <amps> V = <volts>
@@ -32,7 +31,6 @@ from serial import SerialException
 from serial.tools import list_ports
 
 
-FLOAT_COLUMN_RE = re.compile(r"^(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)$")
 IV_PAIR_RE = re.compile(r"^I\s*=\s*(-?\d+(?:\.\d+)?)\s+V\s*=\s*(-?\d+(?:\.\d+)?)$")
 POINTS_RE = re.compile(r"\bPoints\s*=\s*(\d+)\b")
 VOC_ISC_RE = re.compile(
@@ -41,9 +39,6 @@ VOC_ISC_RE = re.compile(
 MPP_RE = re.compile(
     r"^MPP\s+P\s*=\s*(-?\d+(?:\.\d+)?)\s+I\s*=\s*(-?\d+(?:\.\d+)?)\s+V\s*=\s*(-?\d+(?:\.\d+)?)$"
 )
-CAPTURE_RE = re.compile(r"^SWEEP_CAPTURE\s+(.*)$")
-ADC_RE = re.compile(r"^SWEEP_ADC\s+(.*)$")
-EDGE_RE = re.compile(r"^SWEEP_EDGE\s+(.*)$")
 
 
 @dataclass
@@ -140,17 +135,6 @@ def run_sweep(
                         )
                     )
                     point_was_read = True
-                else:
-                    two_column_match = FLOAT_COLUMN_RE.match(line)
-                    if two_column_match:
-                        sweep_points.append(
-                            SweepPoint(
-                                index=len(sweep_points),
-                                x=float(two_column_match.group(1)),
-                                y=float(two_column_match.group(2)),
-                            )
-                        )
-                        point_was_read = True
 
                 if point_was_read:
                     if verbose_points:
@@ -231,15 +215,8 @@ def print_summary(lines: list[str], points: list[SweepPoint], x_label: str, y_la
             )
             break
 
-    for pattern in (CAPTURE_RE, ADC_RE, EDGE_RE):
-        for line in lines:
-            match = pattern.match(line)
-            if match:
-                print(f"  {line}")
-                break
-
     if not points:
-        print("  no SWEEP_POINT lines found")
+        print("  no I = ... V = ... point lines found")
         return
 
     x_values = [point.x for point in points]
